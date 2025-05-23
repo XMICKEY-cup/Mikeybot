@@ -1,0 +1,88 @@
+from telegram.ext import Updater, CommandHandler
+from telegram import ChatPermissions
+import yt_dlp
+import os
+
+TOKEN = "8063651886:AAF6kJCOR57U3WbrT79KcTQWki73qsDkBCg"
+
+def start(update, context):
+    update.message.reply_text("Welcome to the Music & Management Bot! Use /play <YouTube URL> for music.")
+
+def play(update, context):
+    if not context.args:
+        update.message.reply_text("Usage: /play <YouTube URL>")
+        return
+    url = context.args[0]
+    update.message.reply_text("Downloading audio...")
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': 'song.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+    audio_file = 'song.mp3'
+    if os.path.exists(audio_file):
+        context.bot.send_audio(chat_id=update.effective_chat.id, audio=open(audio_file, 'rb'))
+        os.remove(audio_file)
+    else:
+        update.message.reply_text("Download failed.")
+
+def mute(update, context):
+    if not update.message.reply_to_message:
+        update.message.reply_text('Reply to a user to mute.')
+        return
+    user_id = update.message.reply_to_message.from_user.id
+    context.bot.restrict_chat_member(
+        chat_id=update.effective_chat.id,
+        user_id=user_id,
+        permissions=ChatPermissions(can_send_messages=False),
+    )
+    update.message.reply_text('User muted.')
+
+def unmute(update, context):
+    if not update.message.reply_to_message:
+        update.message.reply_text('Reply to a user to unmute.')
+        return
+    user_id = update.message.reply_to_message.from_user.id
+    context.bot.restrict_chat_member(
+        chat_id=update.effective_chat.id,
+        user_id=user_id,
+        permissions=ChatPermissions(can_send_messages=True),
+    )
+    update.message.reply_text('User unmuted.')
+
+def ban(update, context):
+    if not update.message.reply_to_message:
+        update.message.reply_text('Reply to a user to ban.')
+        return
+    user_id = update.message.reply_to_message.from_user.id
+    context.bot.kick_chat_member(chat_id=update.effective_chat.id, user_id=user_id)
+    update.message.reply_text('User banned.')
+
+def kick(update, context):
+    if not update.message.reply_to_message:
+        update.message.reply_text('Reply to a user to kick.')
+        return
+    user_id = update.message.reply_to_message.from_user.id
+    context.bot.kick_chat_member(chat_id=update.effective_chat.id, user_id=user_id)
+    context.bot.unban_chat_member(chat_id=update.effective_chat.id, user_id=user_id)
+    update.message.reply_text('User kicked.')
+
+updater = Updater(TOKEN, use_context=True)
+dp = updater.dispatcher
+
+dp.add_handler(CommandHandler("start", start))
+dp.add_handler(CommandHandler("play", play))
+dp.add_handler(CommandHandler("mute", mute))
+dp.add_handler(CommandHandler("unmute", unmute))
+dp.add_handler(CommandHandler("ban", ban))
+dp.add_handler(CommandHandler("kick", kick))
+
+updater.start_polling()
+updater.idle()
